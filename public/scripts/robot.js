@@ -15,10 +15,10 @@ export class Robot {
         this.velocity = new THREE.Vector3();
         this.acceleration = new THREE.Vector3();
         this.speed = 0;
-        this.maxSpeed = 1.2;
-        this.turnSpeed = 0.04;
-        this.friction = 0.92; // Higher = more slippery/smooth
-        this.accelerationRate = 0.05;
+        this.maxSpeed = 1.5; // Slightly faster top speed
+        this.turnSpeed = 0.06; // Faster turning
+        this.friction = 0.85; // Less slippery, stops faster
+        this.accelerationRate = 0.15; // 3x faster acceleration (snappier)
 
         this.keys = { w: false, a: false, s: false, d: false };
 
@@ -187,13 +187,14 @@ export class Robot {
         if (!this.mesh) return;
 
         // 1. Calculate Acceleration based on Input
-        // Smooth acceleration curve
+        // Snappier acceleration curve
         if (this.keys.w) {
             this.speed = THREE.MathUtils.lerp(this.speed, this.maxSpeed, this.accelerationRate);
         } else if (this.keys.s) {
             this.speed = THREE.MathUtils.lerp(this.speed, -this.maxSpeed / 2, this.accelerationRate);
         } else {
-            this.speed = THREE.MathUtils.lerp(this.speed, 0, this.accelerationRate * 2); // Decelerate faster
+            // Stop much faster when keys released
+            this.speed = THREE.MathUtils.lerp(this.speed, 0, this.accelerationRate * 2);
         }
 
         // 2. Rotation (only when moving or just starting to move)
@@ -207,7 +208,7 @@ export class Robot {
         this.velocity.z = Math.cos(this.mesh.rotation.y) * this.speed;
         this.mesh.position.add(this.velocity);
 
-        // 4. Camera Follow (Smooth Lerp + Shake)
+        // 4. Camera Follow (Tighter Lerp + Shake)
         // We use a separate vector for the "ideal" smooth position to avoid fighting with the shake
         if (!this.smoothCameraPos) {
             this.smoothCameraPos = this.camera.position.clone();
@@ -216,8 +217,8 @@ export class Robot {
         const relativeCameraOffset = new THREE.Vector3(0, 12, -25); // Behind and up
         const targetPos = relativeCameraOffset.applyMatrix4(this.mesh.matrixWorld);
 
-        // Smoothly move the "ideal" position towards the target
-        this.smoothCameraPos.lerp(targetPos, 0.05);
+        // Tighter follow (0.05 -> 0.15) to reduce perceived lag
+        this.smoothCameraPos.lerp(targetPos, 0.15);
 
         // Calculate Shake based on AQI
         let shake = 0;
