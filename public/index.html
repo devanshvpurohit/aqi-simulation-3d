@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRAANBOT-Cam: Real-time AQI Simulation</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- ONNX Runtime Web -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="bg-black text-white overflow-hidden font-sans antialiased selection:bg-green-500 selection:text-black">
+
+    <!-- 3D Container -->
+    <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+    <!-- UI Overlay -->
+    <div class="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-6">
+
+        <!-- Header -->
+        <header class="flex justify-between items-start pointer-events-auto">
+            <div>
+                <h1
+                    class="text-3xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
+                    PRAANBOT-Cam
+                </h1>
+                <p class="text-xs text-gray-400 uppercase tracking-widest mt-1">AI-Driven Mobile AQI Robot Simulation
+                </p>
+            </div>
+
+            <div class="flex gap-2">
+                <button id="btn-live"
+                    class="mode-btn px-4 py-1.5 rounded-full border border-green-500/30 bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition-all active">
+                    LIVE
+                </button>
+                <button id="btn-sim"
+                    class="mode-btn px-4 py-1.5 rounded-full border border-gray-700 bg-gray-900/50 text-gray-400 text-xs font-bold hover:bg-gray-800 transition-all">
+                    SIMULATION
+                </button>
+                <button id="btn-replay"
+                    class="mode-btn px-4 py-1.5 rounded-full border border-gray-700 bg-gray-900/50 text-gray-400 text-xs font-bold hover:bg-gray-800 transition-all">
+                    REPLAY
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Display (Moved to Left) -->
+        <div class="absolute top-1/2 left-10 transform -translate-y-1/2 pointer-events-none text-left">
+            <div class="relative">
+                <div class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Current AQI</div>
+                <div id="aqi-value"
+                    class="text-8xl font-black tracking-tighter text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                    --
+                </div>
+                <div id="aqi-label"
+                    class="text-xl font-bold mt-2 text-green-400 tracking-widest uppercase drop-shadow-lg">
+                    INITIALIZING
+                </div>
+            </div>
+        </div>
+
+        <!-- Warning Banner (Hidden by default) -->
+        <div id="warning-banner"
+            class="hidden absolute top-24 left-0 right-0 bg-red-600/90 text-white text-center py-2 font-bold tracking-widest animate-pulse pointer-events-auto backdrop-blur-md text-xs">
+            ⚠️ CRITICAL AIR QUALITY DETECTED - TOXIC LEVELS
+        </div>
+
+        <!-- Footer / Stats -->
+        <footer class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end pointer-events-auto">
+
+            <!-- Chart -->
+            <div
+                class="col-span-1 md:col-span-2 bg-gray-900/60 backdrop-blur-md border border-white/10 rounded-xl p-4 h-48 flex flex-col">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-[12px] text-gray-400 uppercase font-bold">Real-time Trend + Forecast</h3>
+                    <span class="text-[10px] text-gray-500">BiLSTM Model Confidence: <span id="model-confidence"
+                            class="text-white">--%</span></span>
+                </div>
+                <div class="flex-grow relative w-full h-full">
+                    <canvas id="aqiChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Stats Panel -->
+            <div
+                class="bg-gray-900/60 backdrop-blur-md border border-white/10 rounded-xl p-4 h-48 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-xs text-gray-400 uppercase font-bold mb-3">System Telemetry</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500">Sensor</span>
+                            <span id="sensor-status" class="text-green-400">Connected</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500">Latency</span>
+                            <span id="latency-val" class="text-white">-- ms</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500">Particles</span>
+                            <span id="particle-count" class="text-white">--</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500">Model</span>
+                            <span id="model-status" class="text-yellow-400">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls Legend -->
+                <div class="mt-2 pt-2 border-t border-white/10">
+                    <div class="flex items-center justify-between text-[10px] text-gray-400">
+                        <span>CONTROLS:</span>
+                        <div class="flex gap-1">
+                            <span class="px-1.5 py-0.5 bg-white/10 rounded">W</span>
+                            <span class="px-1.5 py-0.5 bg-white/10 rounded">A</span>
+                            <span class="px-1.5 py-0.5 bg-white/10 rounded">S</span>
+                            <span class="px-1.5 py-0.5 bg-white/10 rounded">D</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-[10px] text-gray-600 text-center mt-1">
+                    Powered by WebGPU & ONNX Runtime
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="scripts/main.js"></script>
+</body>
+
+</html>
