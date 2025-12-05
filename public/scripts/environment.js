@@ -129,12 +129,11 @@ export class Environment {
         }
         colors.needsUpdate = true;
 
-        // Camera Shake
-        if (shake > 0) {
-            // Add shake on top of the follow camera
-            this.camera.position.x += (Math.random() - 0.5) * shake;
-            this.camera.position.y += (Math.random() - 0.5) * shake;
-        }
+        // Camera Shake - REMOVED to prevent jitter (handled in robot.js now)
+        // if (shake > 0) {
+        //     this.camera.position.x += (Math.random() - 0.5) * shake;
+        //     this.camera.position.y += (Math.random() - 0.5) * shake;
+        // }
     }
 
     animate() {

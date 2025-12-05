@@ -207,10 +207,32 @@ export class Robot {
         this.velocity.z = Math.cos(this.mesh.rotation.y) * this.speed;
         this.mesh.position.add(this.velocity);
 
-        // 4. Camera Follow (Smooth Lerp)
+        // 4. Camera Follow (Smooth Lerp + Shake)
+        // We use a separate vector for the "ideal" smooth position to avoid fighting with the shake
+        if (!this.smoothCameraPos) {
+            this.smoothCameraPos = this.camera.position.clone();
+        }
+
         const relativeCameraOffset = new THREE.Vector3(0, 12, -25); // Behind and up
-        const cameraOffset = relativeCameraOffset.applyMatrix4(this.mesh.matrixWorld);
-        this.camera.position.lerp(cameraOffset, 0.05); // Lower factor = smoother follow
+        const targetPos = relativeCameraOffset.applyMatrix4(this.mesh.matrixWorld);
+
+        // Smoothly move the "ideal" position towards the target
+        this.smoothCameraPos.lerp(targetPos, 0.05);
+
+        // Calculate Shake based on AQI
+        let shake = 0;
+        if (aqi > 200) shake = 0.05;
+        if (aqi > 300) shake = 0.1;
+
+        // Apply to actual camera
+        this.camera.position.copy(this.smoothCameraPos);
+
+        if (shake > 0) {
+            this.camera.position.x += (Math.random() - 0.5) * shake;
+            this.camera.position.y += (Math.random() - 0.5) * shake;
+            this.camera.position.z += (Math.random() - 0.5) * shake;
+        }
+
         this.camera.lookAt(this.mesh.position);
 
         // 5. Dust Particles
